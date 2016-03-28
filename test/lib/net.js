@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 /*
@@ -58,6 +58,13 @@ function addNetParams(net, nic) {
             nic[n] = net[n];
         }
     });
+
+    if (net.hasOwnProperty('gateway')) {
+        if (!nic.hasOwnProperty('gateways')) {
+            nic.gateways = [];
+        }
+        nic.gateways.push(net.gateway);
+    }
 
     nic.network_uuid = net.uuid;
     return nic;

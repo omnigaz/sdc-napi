@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 /*
@@ -21,6 +21,7 @@ var mod_moray = require('moray');
 var mod_portolan_moray = require('portolan-moray');
 var util_ip = require('../../lib/util/ip');
 var util_mac = require('../../lib/util/mac');
+var vasync = require('vasync');
 
 var doneErr = common.doneErr;
 var doneRes = common.doneRes;
@@ -180,19 +181,48 @@ function overlayMapping(t, opts, callback) {
             vl2_vnet_id: vnetID
         };
 
+        // When doing VL2 lookups for NICs with multiple addresses, we can't
+        // reliably get a mapping with a specific IP address, so only do a
+        // partial comparison.
+        var vl2Exp = clone(opts);
+        if (vl2Exp.exp) {
+            vl2Exp.partialExp = vl2Exp.exp;
+            delete vl2Exp.exp;
+        }
+        if (vl2Exp.partialExp && vl2Exp.partialExp.ip) {
+            delete vl2Exp.partialExp.ip;
+        }
+
         mod_portolan_moray.vl2Lookup(vl2Opts,
-                afterMoray.bind(null, t, opts, function () {
+                afterMoray.bind(null, t, vl2Exp, function () {
 
-            var vl3Opts = {
-                log: log,
-                moray: client,
-                noCache: true,
-                vl3_ip: util_ip.toIP6Addr(nic.ip).toString(),
-                vl3_vnet_id: vnetID
-            };
+            vasync.forEachPipeline({
+                'inputs': nic.ips,
+                'func': function (cidr, cb) {
+                    var parts = cidr.split('/');
+                    var ip = util_ip.toIP6Addr(parts[0]).toString();
+                    var vl3Opts = {
+                        log: log,
+                        moray: client,
+                        noCache: true,
+                        vl3_ip: ip,
+                        vl3_vnet_id: vnetID
+                    };
 
-            mod_portolan_moray.vl3Lookup(vl3Opts,
-                afterMoray.bind(null, t, opts, callback));
+                    var vl3Exp = clone(opts);
+                    if (vl3Exp.exp) {
+                        vl3Exp.exp.ip = ip;
+                    }
+                    if (vl3Exp.partialExp) {
+                        vl3Exp.partialExp.ip = ip;
+                    }
+
+                    mod_portolan_moray.vl3Lookup(vl3Opts,
+                        afterMoray.bind(null, t, vl3Exp, cb));
+                }
+            }, function (err) {
+                doneErr(err, t, callback);
+            });
         }));
     });
 }

@@ -67,6 +67,26 @@ function netParams(extra) {
     return h.validNetworkParams(params);
 }
 
+function v6netParams(extra) {
+    if (!extra) {
+        extra = {};
+    }
+
+    var l = NETS.length;
+    var params = {
+        name: 'net' + l,
+        // Ensure the networks sort in order of creation:
+        uuid: util.format('%d%d%d%d7862-54fa-4667-89ae-c981cd5ada9a',
+            l, l, l, l)
+    };
+
+    for (var e in extra) {
+        params[e] = extra[e];
+    }
+
+    return h.validIPv6NetworkParams(params);
+}
+
 
 function createNet(t, extra) {
     if (!extra) {
@@ -125,7 +145,7 @@ test('Initial setup', function (t) {
                     NETS.push(res2);
                 }
 
-                return t.end();
+                return t2.end();
             });
         });
 
@@ -149,9 +169,33 @@ test('Initial setup', function (t) {
             createNet(t2);
         });
 
+        t.test('create net6', function (t2) {
+            NAPI.createNetwork(v6netParams(), function (err2, res2) {
+                t2.ifErr(err2);
+                if (res2) {
+                    NETS.push(res2);
+                }
+
+                return t2.end();
+            });
+        });
+
+        t.test('create net7', function (t2) {
+            NAPI.createNetwork(v6netParams(), function (err2, res2) {
+                t2.ifErr(err2);
+                if (res2) {
+                    NETS.push(res2);
+                }
+
+                return t2.end();
+            });
+        });
+
+
         t.test('create pool1', function (t2) {
             var name = 'pool1-' + process.pid;
             var params = {
+                pool_type: 'ipv4',
                 networks: [ NETS[0].uuid, NETS[1].uuid, NETS[2].uuid ]
             };
 
@@ -172,6 +216,7 @@ test('Initial setup', function (t) {
         t.test('create pool2', function (t2) {
             var name = 'pool2-' + process.pid;
             var params = {
+                pool_type: 'ipv4',
                 networks: [ NETS[4].uuid, NETS[5].uuid ],
                 owner_uuids: [ mod_uuid.v4() ]
             };
@@ -188,6 +233,29 @@ test('Initial setup', function (t) {
                 return t2.end();
             });
         });
+
+        t.test('create pool3', function (t2) {
+            var name = 'pool3-' + process.pid;
+            var params = {
+                pool_type: 'ipv6',
+                networks: [ NETS[6].uuid, NETS[7].uuid ],
+                owner_uuids: [ mod_uuid.v4() ]
+            };
+
+            NAPI.createNetworkPool(name, params, function (err2, res2) {
+                if (!err2) {
+                    POOLS.push(res2);
+                    params.name = name;
+                    params.uuid = res2.uuid;
+                    params.nic_tag = NETS[6].nic_tag;
+                    t2.deepEqual(res2, params, 'result');
+                }
+
+                return t2.end();
+            });
+        });
+
+        t.end();
     });
 });
 
@@ -270,6 +338,30 @@ test('Create pool - mismatched nic tags', function (t) {
 });
 
 
+test('Create pool - mismatched address families', function (t) {
+    var params = {
+        networks: [ NETS[0].uuid, NETS[6].uuid ]
+    };
+
+    NAPI.createNetworkPool('pool-fail-3-' + process.pid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                constants.POOL_AF_MATCH_MSG) ]
+        }), 'error body');
+
+        return t.end();
+    });
+});
+
+
+
 
 // --- Update tests
 
@@ -330,6 +422,52 @@ test('Update pool: no networks', function (t) {
         t.deepEqual(err.body, h.invalidParamErr({
             errors: [ mod_err.invalidParam('networks',
                 constants.POOL_MIN_NETS_MSG) ]
+        }), 'error body');
+
+        return t.end();
+    });
+});
+
+
+test('Update IPv4 pool - mismatched address families', function (t) {
+    var params = {
+        networks: [ NETS[0].uuid, NETS[1].uuid, NETS[2].uuid, NETS[6].uuid ]
+    };
+
+    NAPI.updateNetworkPool(POOLS[0].uuid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                constants.POOL_AF_MATCH_MSG) ]
+        }), 'error body');
+
+        return t.end();
+    });
+});
+
+
+test('Update IPv6 pool - mismatched address families', function (t) {
+    var params = {
+        networks: [ NETS[0].uuid, NETS[6].uuid, NETS[7].uuid ]
+    };
+
+    NAPI.updateNetworkPool(POOLS[2].uuid, params,
+        function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ mod_err.invalidParam('networks',
+                constants.POOL_AF_MATCH_MSG) ]
         }), 'error body');
 
         return t.end();
@@ -556,7 +694,7 @@ test('List Network Pool failures', function (t) {
 
 
 
-test('Provision nic - on network pool with IP', function (t) {
+test('Provision nic - on IPv4 network pool with IPv4', function (t) {
     var params = {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
@@ -578,6 +716,30 @@ test('Provision nic - on network pool with IP', function (t) {
         return t.end();
     });
 });
+
+test('Provision nic - on IPv6 network pool with IPv6', function (t) {
+    var params = {
+        belongs_to_type: 'zone',
+        belongs_to_uuid: mod_uuid.v4(),
+        ips: [ NETS[6].provision_start_ip + '/64'],
+        owner_uuid:  mod_uuid.v4()
+    };
+
+    NAPI.provisionNic(POOLS[2].uuid, params, function (err, res) {
+        t.ok(err);
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, h.invalidParamErr({
+            errors: [ mod_err.invalidParam('ips', constants.POOL_IP_MSG) ]
+        }), 'error body');
+
+        return t.end();
+    });
+});
+
 
 
 test('Provision nic - on network pool', function (t) {
@@ -618,6 +780,7 @@ test('Provision nic - on network pool', function (t) {
                     belongs_to_type: params.belongs_to_type,
                     belongs_to_uuid: params.belongs_to_uuid,
                     ip: nextIP,
+                    ips: [ nextIP + '/28' ],
                     mac: res.mac,
                     owner_uuid: params.owner_uuid
                 }, net), 'result for' + desc);

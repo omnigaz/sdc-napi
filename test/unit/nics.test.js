@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 /*
@@ -20,6 +20,7 @@ var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
 var ip_common = require('../../lib/models/ip/common');
+var net = require('net');
 var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../lib/ip');
 var mod_moray = require('../lib/moray');
@@ -47,6 +48,9 @@ var NAPI;
 var NET;
 var NET2;
 var NET3;
+var NET4;
+var NET5;
+var NET6;
 var PROV_MAC_NET;
 
 
@@ -72,6 +76,12 @@ test('Initial setup', function (t) {
     t.test('create nic tag', function (t2) {
         mod_nicTag.create(t2, {
             name: netParams.nic_tag
+        });
+    });
+
+    t.test('create second nic tag', function (t2) {
+        mod_nicTag.create(t2, {
+            name: 'nic_tag2'
         });
     });
 
@@ -116,6 +126,51 @@ test('Initial setup', function (t) {
         }, function (_, res) {
             NET3 = res;
             NET3.num = num;
+
+            return t2.end();
+        });
+    });
+
+    t.test('create net4', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validIPv6NetworkParams({
+            gateway: util.format('fd00:%s::e40e', num),
+            vlan_id: 47
+        });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET4 = res;
+            NET4.num = num;
+
+            return t2.end();
+        });
+    });
+
+    t.test('create net5', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validIPv6NetworkParams({ nic_tag: 'nic_tag2' });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET5 = res;
+            NET5.num = num;
+
+            return t2.end();
+        });
+    });
+
+    t.test('create net6', function (t2) {
+        num = h.NET_NUM;
+        var params = h.validNetworkParams({ nic_tag: 'nic_tag2' });
+        mod_net.create(t2, {
+            params: params,
+            partialExp: params
+        }, function (_, res) {
+            NET6 = res;
+            NET6.num = num;
 
             return t2.end();
         });
@@ -286,6 +341,7 @@ test('Create nic on network_uuid=admin', function (t) {
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
             ip: res.ip,
+            ips: [ res.ip + '/24' ],
             mac: res.mac,
             owner_uuid: params.owner_uuid
         }, ADMIN_NET);
@@ -315,12 +371,65 @@ test('Create nic - invalid params', function (t) {
                     constants.fmt.IP_OUTSIDE, fmt('10.0.%d.1', NET.num + 1),
                     NET.uuid)) ] ],
 
+        [ 'IPv6 instead of IPv4 address in "ip" field',
+            { ip: 'fd00::42', belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid },
+                [ mod_err.invalidParam('ip', constants.IPV4_REQUIRED) ] ],
+
         [ 'IP specified, but not nic_tag or vlan_id',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
                 owner_uuid: owner },
                 [ h.missingParam('nic_tag', constants.msg.IP_NO_VLAN_TAG),
                 h.missingParam('vlan_id', constants.msg.IP_NO_VLAN_TAG) ],
                 'Missing parameters' ],
+
+        [ 'Invalid type in "ips" field',
+            { ips: 20, belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network6_uuid: NET4.uuid },
+                [ mod_err.invalidParam('ips',
+                    'must be an array of strings') ] ],
+
+        [ 'Invalid type in "ips" array',
+            { ips: [ 20 ], belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network6_uuid: NET4.uuid },
+                [ mod_err.invalidParam('ips', 'invalid IP',
+                    { invalid: [ 20 ] }) ] ],
+
+        [ 'Invalid types in "ips" array',
+            { ips: [ 20, true ], belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network6_uuid: NET4.uuid },
+                [ mod_err.invalidParam('ips', 'invalid IPs',
+                    { invalid: [ 20, true ] }) ] ],
+
+        [ 'IPv4 network in network6_uuid',
+            { ips: ['fd00::42/64'], belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network6_uuid: NET.uuid },
+                [ mod_err.invalidParam('network6_uuid', util.format(
+                    constants.fmt.NET_BAD_AF, 'IPv6')) ] ],
+
+        [ 'IPv6 network in network_uuid',
+            { ip: '10.0.2.2', belongs_to_type: type,
+                belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET4.uuid },
+                [ mod_err.invalidParam('network_uuid', util.format(
+                    constants.fmt.NET_BAD_AF, 'IPv4')) ] ],
+
+        [ 'vlan_id different between IPv4 and IPv6 networks',
+            { belongs_to_type: type, belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid, network6_uuid: NET4.uuid },
+                [ mod_err.invalidParam('network_uuid',
+                    constants.msg.VLAN_IDS_DIFFER) ] ],
+
+        [ 'nic_tag different between IPv4 and IPv6 networks',
+            { belongs_to_type: type, belongs_to_uuid: uuid, owner_uuid: owner,
+                network_uuid: NET.uuid, network6_uuid: NET5.uuid },
+                [ mod_err.invalidParam('network_uuid',
+                    constants.msg.NIC_TAGS_DIFFER) ] ],
 
         [ 'Non-existent network',
             { ip: '10.0.2.2', belongs_to_type: type, belongs_to_uuid: uuid,
@@ -497,14 +606,14 @@ test('Create nic with resolver IP', function (t) {
     });
 
     t.test('create', function (t2) {
-        var net = mod_net.lastCreated();
-        t2.ok(net, 'network created');
+        var network = mod_net.lastCreated();
+        t2.ok(network, 'network created');
 
         d.partialExp = {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
-            ip: net.resolvers[0],
-            network_uuid: net.uuid,
+            ip: network.resolvers[0],
+            network_uuid: network.uuid,
             owner_uuid:  mod_uuid.v4()
         };
 
@@ -535,10 +644,12 @@ test('Provision nic', function (t) {
             return t.end();
         }
 
+        var expIP = h.nextProvisionableIP(NET2);
         var exp = {
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
-            ip: h.nextProvisionableIP(NET2),
+            ip: expIP,
+            ips: [ expIP + '/24' ],
             mac: res.mac,
             mtu: NET2.mtu,
             netmask: '255.255.255.0',
@@ -912,6 +1023,7 @@ test('Provision nic - with IP', function (t) {
                 belongs_to_type: params.belongs_to_type,
                 belongs_to_uuid: params.belongs_to_uuid,
                 ip: fmt('10.0.%d.200', NET2.num),
+                ips: [ fmt('10.0.%d.200', NET2.num) + '/24' ],
                 mac: res.mac,
                 owner_uuid: params.owner_uuid
             }, NET2);
@@ -1038,10 +1150,12 @@ test('(PNDS) Provision nic - with different state', function (t) {
         owner_uuid:  mod_uuid.v4(),
         state: 'stopped'
     };
+    var expIP = h.nextProvisionableIP(NET2);
     var exp = mod_nic.addDefaultParams({
         belongs_to_type: params.belongs_to_type,
         belongs_to_uuid: params.belongs_to_uuid,
-        ip: h.nextProvisionableIP(NET2),
+        ip: expIP,
+        ips: [ expIP + '/24' ],
         owner_uuid: params.owner_uuid,
         state: 'stopped'
     }, NET2);
@@ -1076,13 +1190,220 @@ test('(PNDS) Provision nic - with different state', function (t) {
 });
 
 
+test('Provision nic - multiple IPv4 addresses', function (t) {
+    t.plan(3);
+    var d = {};
+
+    t.test('create', function (t2) {
+        d.mac = h.randomMAC();
+        d.ips = [
+            h.nextProvisionableIP(NET2),
+            h.nextProvisionableIP(NET2),
+            h.nextProvisionableIP(NET2),
+            h.nextProvisionableIP(NET2)
+        ];
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4(),
+            ips: d.ips.map(function (ip) { return ip + '/24'; }),
+            network_uuid: NET2.uuid
+        };
+
+        mod_nic.create(t2, {
+            mac: d.mac,
+            params: d.params,
+            partialExp: d.params
+        });
+
+    });
+
+    t.test('get nic', function (t2) {
+        mod_nic.get(t2, {
+            mac: d.mac,
+            partialExp: d.params
+        });
+    });
+
+    t.test('get IPv4 addresses', function (t2) {
+        t2.plan(d.ips.length);
+        d.ips.forEach(function (ip) {
+            t2.test('get IPv4 address: ' + ip, function (t3) {
+                mod_ip.get(t3, {
+                    net: NET2.uuid,
+                    ip: ip,
+                    exp: {
+                        belongs_to_type: d.params.belongs_to_type,
+                        belongs_to_uuid: d.params.belongs_to_uuid,
+                        free: false,
+                        ip: ip,
+                        network_uuid: NET2.uuid,
+                        owner_uuid: d.params.owner_uuid,
+                        reserved: false
+                    }
+                });
+            });
+        });
+    });
+});
+
+
+test('Provision nic - multiple IPv6 addresses', function (t) {
+    t.plan(3);
+    var d = {};
+
+    t.test('create', function (t2) {
+        d.mac = h.randomMAC();
+        d.ips = [
+            h.nextProvisionableIP(NET5),
+            h.nextProvisionableIP(NET5),
+            h.nextProvisionableIP(NET5),
+            h.nextProvisionableIP(NET5)
+        ];
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4(),
+            ips: d.ips.map(function (ip) { return ip + '/64'; }),
+            network6_uuid: NET5.uuid
+        };
+
+        mod_nic.create(t2, {
+            mac: d.mac,
+            params: d.params,
+            partialExp: d.params
+        });
+
+    });
+
+    t.test('get nic', function (t2) {
+        mod_nic.get(t2, {
+            mac: d.mac,
+            partialExp: d.params
+        });
+    });
+
+    t.test('get IPv6 addresses', function (t2) {
+        t2.plan(d.ips.length);
+        d.ips.forEach(function (ip) {
+            t2.test('get IPv6 address: ' + ip, function (t3) {
+                mod_ip.get(t3, {
+                    net: NET5.uuid,
+                    ip: ip,
+                    exp: {
+                        belongs_to_type: d.params.belongs_to_type,
+                        belongs_to_uuid: d.params.belongs_to_uuid,
+                        free: false,
+                        ip: ip,
+                        network_uuid: NET5.uuid,
+                        owner_uuid: d.params.owner_uuid,
+                        reserved: false
+                    }
+                });
+            });
+        });
+    });
+});
+
+
+test('Provision nic - multiple IPv4 & IPv6 addresses', function (t) {
+    t.plan(5);
+    var d = {};
+
+    t.test('create', function (t2) {
+        d.mac = h.randomMAC();
+        d.ips = [
+            h.nextProvisionableIP(NET6),
+            h.nextProvisionableIP(NET6),
+            h.nextProvisionableIP(NET5),
+            h.nextProvisionableIP(NET5)
+        ];
+        d.params = {
+            belongs_to_type: 'zone',
+            belongs_to_uuid: mod_uuid.v4(),
+            owner_uuid:  mod_uuid.v4(),
+            ips: d.ips.map(function (ip) {
+                return ip + (net.isIPv6(ip) ? '/64' : '/24');
+            }),
+            network_uuid: NET6.uuid,
+            network6_uuid: NET5.uuid
+        };
+
+        mod_nic.create(t2, {
+            mac: d.mac,
+            params: d.params,
+            partialExp: d.params
+        });
+
+    });
+
+    t.test('get nic', function (t2) {
+        mod_nic.get(t2, {
+            mac: d.mac,
+            partialExp: d.params
+        });
+    });
+
+    t.test('get IP addresses', function (t2) {
+        t2.plan(d.ips.length);
+        d.ips.forEach(function (ip) {
+            t2.test('get IP address: ' + ip, function (t3) {
+                var net_uuid = (net.isIPv6(ip) ? NET5.uuid : NET6.uuid);
+                mod_ip.get(t3, {
+                    net: net_uuid,
+                    ip: ip,
+                    exp: {
+                        belongs_to_type: d.params.belongs_to_type,
+                        belongs_to_uuid: d.params.belongs_to_uuid,
+                        free: false,
+                        ip: ip,
+                        network_uuid: net_uuid,
+                        owner_uuid: d.params.owner_uuid,
+                        reserved: false
+                    }
+                });
+            });
+        });
+    });
+
+    t.test('delete nic', function (t2) {
+       NAPI.deleteNic(d.mac, function (err, res) {
+           if (h.ifErr(t2, err, 'delete nic')) {
+               return t2.end();
+           }
+
+           return t2.end();
+       });
+    });
+
+    t.test('ensure IP addresses were deleted', function (t2) {
+        t2.plan(d.ips.length);
+        d.ips.forEach(function (ip) {
+            t2.test('get IP address: ' + ip, function (t3) {
+                var net_uuid = (net.isIPv6(ip) ? NET5.uuid : NET6.uuid);
+                mod_ip.get(t3, {
+                    net: net_uuid,
+                    ip: ip,
+                    exp: {
+                        free: true,
+                        ip: ip,
+                        network_uuid: net_uuid,
+                        reserved: false
+                    }
+                });
+            });
+        });
+    });
+});
+
+
 
 // --- Update tests
 
 
 
 test('Update nic - provision IP', function (t) {
-    t.plan(4);
+    t.plan(5);
     var d = {};
 
     t.test('create', function (t2) {
@@ -1105,7 +1426,14 @@ test('Update nic - provision IP', function (t) {
         d.exp = mod_nic.addDefaultParams({
             belongs_to_type: d.params.belongs_to_type,
             belongs_to_uuid: d.params.belongs_to_uuid,
+            gateways: [ fmt('fd00:%d::e40e', NET4.num) ],
             ip: NET3.provision_start_ip,
+            ips: [
+                NET3.provision_start_ip + '/24',
+                NET4.provision_start_ip + '/64'
+            ],
+            network_uuid: NET3.uuid,
+            network6_uuid: NET4.uuid,
             mac: d.mac,
             owner_uuid: d.params.owner_uuid
         }, NET3);
@@ -1113,7 +1441,8 @@ test('Update nic - provision IP', function (t) {
         mod_nic.update(t2, {
             mac: d.mac,
             params: {
-                network_uuid: NET3.uuid
+                network_uuid: NET3.uuid,
+                network6_uuid: NET4.uuid
             },
             exp: d.exp
         });
@@ -1126,7 +1455,7 @@ test('Update nic - provision IP', function (t) {
         });
     });
 
-    t.test('get IP', function (t2) {
+    t.test('get IPv4 address', function (t2) {
         mod_ip.get(t2, {
             net: NET3.uuid,
             ip: NET3.provision_start_ip,
@@ -1134,13 +1463,30 @@ test('Update nic - provision IP', function (t) {
                 belongs_to_type: d.exp.belongs_to_type,
                 belongs_to_uuid: d.exp.belongs_to_uuid,
                 free: false,
-                ip: d.exp.ip,
+                ip: NET3.provision_start_ip,
                 network_uuid: NET3.uuid,
                 owner_uuid: d.exp.owner_uuid,
                 reserved: false
             }
         });
     });
+
+    t.test('get IPv6 address', function (t2) {
+        mod_ip.get(t2, {
+            net: NET4.uuid,
+            ip: NET4.provision_start_ip,
+            exp: {
+                belongs_to_type: d.exp.belongs_to_type,
+                belongs_to_uuid: d.exp.belongs_to_uuid,
+                free: false,
+                ip: NET4.provision_start_ip,
+                network_uuid: NET4.uuid,
+                owner_uuid: d.exp.owner_uuid,
+                reserved: false
+            }
+        });
+    });
+
 });
 
 
@@ -1161,6 +1507,7 @@ test('Update nic - IP parameters updated', function (t) {
             belongs_to_type: d.params.belongs_to_type,
             belongs_to_uuid: d.params.belongs_to_uuid,
             ip: d.params.ip,
+            ips: [ d.params.ip + '/24' ],
             mac: d.mac,
             owner_uuid: d.params.owner_uuid
         }, NET);
@@ -1244,6 +1591,7 @@ test('Update nic - change IP', function (t) {
             belongs_to_type: 'zone',
             belongs_to_uuid: mod_uuid.v4(),
             ip: d.ips[0],
+            ips: [ d.ips[0] + '/24' ],
             network_uuid: NET.uuid,
             owner_uuid:  mod_uuid.v4()
         };
@@ -1253,6 +1601,7 @@ test('Update nic - change IP', function (t) {
             belongs_to_type: params.belongs_to_type,
             belongs_to_uuid: params.belongs_to_uuid,
             ip: params.ip,
+            ips: [ params.ip + '/24' ],
             mac: d.mac,
             owner_uuid: params.owner_uuid
         }, NET);
@@ -1274,6 +1623,7 @@ test('Update nic - change IP', function (t) {
         for (var k in updateParams) {
             d.exp[k] = updateParams[k];
         }
+        d.exp.ips = [ updateParams.ip + '/24' ];
 
         mod_nic.update(t2, {
             mac: d.mac,
@@ -1371,6 +1721,7 @@ test('Update nic - change IP', function (t) {
     t.test('update nic to ip2', function (t2) {
         var updateParams = {
             ip: d.ips[2],
+            ips: [ d.ips[2] + '/24' ],
             network_uuid: NET.uuid
         };
 
@@ -1951,7 +2302,9 @@ test('antispoof options', function (t) {
 
             d.exp = res;
             d.mac = res.mac;
-            t2.equal(res.ip, h.nextProvisionableIP(NET2), 'IP');
+            var ipaddr = h.nextProvisionableIP(NET2);
+            t2.equal(res.ip, ipaddr, 'IP');
+            t2.deepEqual(res.ips, [ ipaddr + '/24' ], 'IPs array');
 
             var morayObj = mod_moray.getNic(res.mac);
             t2.ok(!morayObj.hasOwnProperty('network'),

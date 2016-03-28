@@ -113,11 +113,13 @@ function nextProvisionableIP(net) {
     assert.object(net, 'net');
     if (!NET_IPS.hasOwnProperty(net.uuid)) {
         assert.string(net.provision_start_ip, 'net.provision_start_ip');
-        NET_IPS[net.uuid] = util_ip.aton(net.provision_start_ip);
-        assert.number(NET_IPS[net.uuid], 'NET_IPS[net.uuid]');
+        NET_IPS[net.uuid] = net.provision_start_ip;
+        assert.string(NET_IPS[net.uuid], 'NET_IPS[net.uuid]');
     }
 
-    return util_ip.ntoa(NET_IPS[net.uuid]++);
+    var curr = NET_IPS[net.uuid];
+    NET_IPS[net.uuid] = util_ip.ipAddrPlus(curr, 1).toString();
+    return curr;
 }
 
 
@@ -204,10 +206,10 @@ function validIPv6NetworkParams(override) {
     var newNet = {
         name: 'myname',
         nic_tag: 'nic_tag',
-        provision_end_ip: util.format('fc00:%s::ffff:ffff:ffff:ffff', NET_HEX),
-        provision_start_ip: util.format('fc00:%s::1', NET_HEX),
+        provision_end_ip: util.format('fd00:%s::ffff:ffff:ffff:ffff', NET_HEX),
+        provision_start_ip: util.format('fd00:%s::1', NET_HEX),
         resolvers: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
-        subnet: util.format('fc00:%s::/64', NET_HEX),
+        subnet: util.format('fd00:%s::/64', NET_HEX),
         vlan_id: 0,
         mtu: constants.MTU_DEFAULT
     };

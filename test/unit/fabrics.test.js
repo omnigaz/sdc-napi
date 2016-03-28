@@ -155,6 +155,18 @@ var NETS = [
         owner_uuid: VLANS[3].owner_uuid,
         provision_start_ip: '172.16.1.1',
         provision_end_ip: '172.16.3.254'
+    },
+
+    // -- IPv6 on VLANS[1] (OWNERS[0])
+
+    // 5
+    {
+        vlan_id: VLANS[1].vlan_id,
+        subnet: 'fd05::/64',
+        name: mod_fabric_net.generateName(),
+        owner_uuid: VLANS[1].owner_uuid,
+        provision_start_ip: 'fd05::4',
+        provision_end_ip: 'fd05::ffff:ffff:ffff'
     }
 
 ];
@@ -448,6 +460,16 @@ test('create network', function (t) {
         return t2.end();
     });
 
+
+    t.test('create network: 5', function (t2) {
+        mod_fabric_net.createAndGet(t2, {
+            fillInMissing: true,
+            params: NETS[5],
+            exp: NETS[5]
+        });
+    });
+
+
     t.test('vnet_ids match', function (t2) {
         // VLANs with the same owner_uuid share the same vnet_id
         t.ok(VLANS[0].vnet_id, 'VLANS[0] has vnet_id');
@@ -465,6 +487,7 @@ test('create network', function (t) {
 
         t.equal(NETS[2].vnet_id, VLANS[1].vnet_id, 'NETS[2] vnet_id');
         t.equal(NETS[3].vnet_id, VLANS[2].vnet_id, 'NETS[3] vnet_id');
+        t.equal(NETS[5].vnet_id, VLANS[1].vnet_id, 'NETS[5] vnet_id');
 
         return t2.end();
     });
@@ -561,7 +584,7 @@ test('list networks', function (t) {
                 vlan_id: VLANS[1].vlan_id
             },
             deepEqual: true,
-            present: [ NETS[2] ]
+            present: [ NETS[2], NETS[5] ]
         });
     });
 
@@ -960,6 +983,64 @@ test('provision zone nics', function (t) {
                 vnet_id: mod_portolan.nicVnetID(t, CREATED.updateNic)
             }
         });
+    });
+
+
+    t.test('NETS[2] and NETS[5]: provision', function (t2) {
+        t2.ok(CREATED.net0nic, 'last created nic');
+
+        mod_nic.provision(t2, {
+            fillInMissing: true,
+            net: NETS[2].uuid,
+            params: {
+                network6_uuid: NETS[5].uuid,
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[1],
+                cn_uuid: SERVERS[0],
+                owner_uuid: OWNERS[0]
+            },
+            exp: mod_net.addNetParams(NETS[2], {
+                network6_uuid: NETS[5].uuid,
+                belongs_to_type: 'zone',
+                belongs_to_uuid: VMS[1],
+                fabric: true,
+                internet_nat: false,
+                cn_uuid: SERVERS[0],
+                nic_tag: nicTags[0],
+                owner_uuid: OWNERS[0]
+            })
+        });
+    });
+
+
+    // We specified cn_uuid when provisioning the last nic, so it should
+    // have an overlay mapping
+    t.test('nic 3: overlay mappings added', function (t2) {
+        var nic = mod_nic.lastCreated();
+        t2.ok(nic, 'last created nic');
+
+        t2.equal(2, nic.ips.length, 'Should have an IPv4 and IPv6 address');
+
+        nic.ips.forEach(function (cidr) {
+            var parts = cidr.split('/');
+            t2.equal(2, parts.length, 'cidr has two parts');
+            t2.test(function (t3) {
+                mod_portolan.overlayMapping(t3, {
+                    params: {
+                        nic: nic
+                    },
+                    exp: {
+                        cn_uuid: SERVERS[0],
+                        deleted: false,
+                        mac: nic.mac,
+                        version: 1,
+                        vnet_id: mod_portolan.nicVnetID(t, CREATED.updateNic)
+                    }
+                });
+            }, 'Should have a mapping for ' + cidr);
+        });
+
+        t2.end();
     });
 
 

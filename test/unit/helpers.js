@@ -198,10 +198,10 @@ function validIPv6NetworkParams(override) {
     var newNet = {
         name: 'myname' + NET_NUM,
         nic_tag: 'nic_tag',
-        provision_end_ip: util.format('fc00:%s::ffff:ffff:ffff:ffff', NET_HEX),
-        provision_start_ip: util.format('fc00:%s::1', NET_HEX),
+        provision_end_ip: util.format('fd00:%s::ffff:ffff:ffff:ffff', NET_HEX),
+        provision_start_ip: util.format('fd00:%s::1', NET_HEX),
         resolvers: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
-        subnet: util.format('fc00:%s::/64', NET_HEX),
+        subnet: util.format('fd00:%s::/64', NET_HEX),
         vlan_id: 0,
         mtu: constants.MTU_DEFAULT
     };
@@ -214,7 +214,16 @@ function validIPv6NetworkParams(override) {
     return newNet;
 }
 
+function addNetworkUUIDs(count, networks) {
+    var obj = {};
+    networks.forEach(function (uuid) {
+        obj[uuid] = count;
+    });
+    return obj;
+}
+
 module.exports = {
+    addNetworkUUIDs: addNetworkUUIDs,
     copyParams: copyParams,
     createClient: createClient,
     createClientAndServer: createClientAndServer,

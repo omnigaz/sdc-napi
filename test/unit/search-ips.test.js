@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 /*
@@ -27,10 +27,12 @@ var test = require('tape');
 
 
 
-var RESERVED_IP;
+var RESERVED_IPV4;
+var RESERVED_IPV6;
 var NAPI;
 var NETS = [];
-var NOT_IN_MORAY_IP;
+var NOT_IN_MORAY_IPV4;
+var NOT_IN_MORAY_IPV6;
 
 
 
@@ -52,13 +54,21 @@ function uuidSort(a, b) {
 
 
 test('Initial setup', function (t) {
-    var num = h.NET_NUM;
-    var netParams = h.validNetworkParams();
+    var net1num    = h.NET_NUM;
+    var net1Params = h.validNetworkParams();
     var net2Params = h.validNetworkParams();
+    var net3num    = h.NET_NUM;
     var net3Params = h.validNetworkParams();
+    var net4num    = h.NET_NUM;
+    var net4Params = h.validIPv6NetworkParams();
+    var net5num    = h.NET_NUM;
+    var net5Params = h.validIPv6NetworkParams();
 
-    RESERVED_IP = fmt('10.0.%d.15', num);
-    NOT_IN_MORAY_IP = fmt('10.0.%d.19', h.NET_NUM - 1);
+    RESERVED_IPV4 = fmt('10.0.%d.15', net1num);
+    NOT_IN_MORAY_IPV4 = fmt('10.0.%d.19', net3num);
+
+    RESERVED_IPV6 = fmt('fd00:%d::1234', net4num);
+    NOT_IN_MORAY_IPV6 = fmt('fd00:%d::1235', net5num);
 
     function createNet(params, t2) {
         mod_net.create(t2, {
@@ -83,11 +93,11 @@ test('Initial setup', function (t) {
     });
 
     t.test('create nic tag', function (t2) {
-        mod_nicTag.create(t2, { name: netParams.nic_tag });
+        mod_nicTag.create(t2, { name: net1Params.nic_tag });
     });
 
     t.test('create NETS[0]', function (t2) {
-        createNet(netParams, t2);
+        createNet(net1Params, t2);
     });
 
     t.test('create NETS[1]', function (t2) {
@@ -98,8 +108,24 @@ test('Initial setup', function (t) {
         createNet(net3Params, t2);
     });
 
-    t.test('reserve IP', function (t2) {
-        NAPI.updateIP(NETS[0].uuid, RESERVED_IP, { reserved: true },
+    t.test('create NETS[3]', function (t2) {
+        createNet(net4Params, t2);
+    });
+
+    t.test('create NETS[4]', function (t2) {
+        createNet(net5Params, t2);
+    });
+
+    t.test('reserve IPv4', function (t2) {
+        NAPI.updateIP(NETS[0].uuid, RESERVED_IPV4, { reserved: true },
+            function (err) {
+            h.ifErr(t2, err, 'reserve IP');
+            return t2.end();
+        });
+    });
+
+    t.test('reserve IPv6', function (t2) {
+        NAPI.updateIP(NETS[3].uuid, RESERVED_IPV6, { reserved: true },
             function (err) {
             h.ifErr(t2, err, 'reserve IP');
             return t2.end();
@@ -148,8 +174,8 @@ test('provisioned nic', function (t) {
 });
 
 
-test('IP in moray', function (t) {
-    NAPI.searchIPs(RESERVED_IP, function (err, obj, req, res) {
+test('IPv4 in moray', function (t) {
+    NAPI.searchIPs(RESERVED_IPV4, function (err, obj, req, res) {
         if (h.ifErr(t, err, 'search')) {
             return t.end();
         }
@@ -158,7 +184,7 @@ test('IP in moray', function (t) {
         t.deepEqual(obj.sort(uuidSort), [
             {
                 free: false,
-                ip: RESERVED_IP,
+                ip: RESERVED_IPV4,
                 reserved: true,
                 network_uuid: NETS[0].uuid
             }
@@ -169,8 +195,8 @@ test('IP in moray', function (t) {
 });
 
 
-test('IP not in moray', function (t) {
-    NAPI.searchIPs(NOT_IN_MORAY_IP, function (err, obj, req, res) {
+test('IPv4 not in moray', function (t) {
+    NAPI.searchIPs(NOT_IN_MORAY_IPV4, function (err, obj, req, res) {
         if (h.ifErr(t, err, 'search')) {
             return t.end();
         }
@@ -179,9 +205,51 @@ test('IP not in moray', function (t) {
         t.deepEqual(obj.sort(uuidSort), [
             {
                 free: true,
-                ip: NOT_IN_MORAY_IP,
+                ip: NOT_IN_MORAY_IPV4,
                 reserved: false,
                 network_uuid: NETS[2].uuid
+            }
+        ]);
+
+        return t.end();
+    });
+});
+
+
+test('IPv6 in moray', function (t) {
+    NAPI.searchIPs(RESERVED_IPV6, function (err, obj, req, res) {
+        if (h.ifErr(t, err, 'search')) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj.sort(uuidSort), [
+            {
+                free: false,
+                ip: RESERVED_IPV6,
+                reserved: true,
+                network_uuid: NETS[3].uuid
+            }
+        ]);
+
+        return t.end();
+    });
+});
+
+
+test('IPv6 not in moray', function (t) {
+    NAPI.searchIPs(NOT_IN_MORAY_IPV6, function (err, obj, req, res) {
+        if (h.ifErr(t, err, 'search')) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj.sort(uuidSort), [
+            {
+                free: true,
+                ip: NOT_IN_MORAY_IPV6,
+                reserved: false,
+                network_uuid: NETS[4].uuid
             }
         ]);
 
@@ -208,7 +276,7 @@ test('Invalid IP', function (t) {
 });
 
 
-test('IP not in any networks', function (t) {
+test('IPv4 not in any networks', function (t) {
     NAPI.searchIPs('1.2.3.4', function (err) {
         t.ok(err, 'error returned');
         if (!err) {
@@ -224,6 +292,25 @@ test('IP not in any networks', function (t) {
         return t.end();
     });
 });
+
+
+test('IPv6 not in any networks', function (t) {
+    NAPI.searchIPs('fc00::20', function (err) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 404, 'status code');
+        t.deepEqual(err.body, {
+            code: 'ResourceNotFound',
+            message: constants.msg.SEARCH_NO_NETS
+        }, 'Error body');
+
+        return t.end();
+    });
+});
+
 
 
 

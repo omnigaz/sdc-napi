@@ -254,7 +254,7 @@ function successfulReserve(params, t) {
 }
 
 
-function createPool(name, params, t) {
+function createPool(name, type, params, t) {
     NAPI.createNetworkPool(name, params, function (err, res) {
         t.ifError(err, 'error returned');
         if (err) {
@@ -265,6 +265,7 @@ function createPool(name, params, t) {
         params.uuid = res.uuid;
         params.name = name;
         params.nic_tag = netParams.nic_tag;
+        params.pool_type = type;
         t.deepEqual(res, params, 'result');
         pools.push(res);
 
@@ -397,7 +398,7 @@ test('create', function (t) {
 
     t.test('with owner_uuid', function (t2) {
         // pools[0]
-        createPool('pool1-' + process.pid, {
+        createPool('pool1-' + process.pid, 'ipv4', {
             networks: [ nets[0].uuid, nets[1].uuid ].sort(),
             owner_uuids: [ owner ]
         }, t2);
@@ -406,7 +407,7 @@ test('create', function (t) {
 
     t.test('mixed owner_uuid and no owner_uuid', function (t2) {
         // pools[1]
-        createPool('pool2-' + process.pid, {
+        createPool('pool2-' + process.pid, 'ipv4', {
             networks: [ nets[0].uuid, nets[3].uuid ].sort(),
             owner_uuids: [ owner ]
         }, t2);
@@ -415,7 +416,7 @@ test('create', function (t) {
 
     t.test('no owner_uuid', function (t2) {
         // pools[2]
-        createPool('pool3-' + process.pid, {
+        createPool('pool3-' + process.pid, 'ipv4', {
             networks: [ nets[0].uuid, nets[3].uuid ].sort()
         }, t2);
     });

@@ -294,6 +294,9 @@ test('isRFC1918', function (t) {
 
 
     var invalid = [
+        'fc00:5de::243',
+        'fd00::1',
+        'fd05:a:b:c::167',
         '9.255.255.255',
         '11.0.0.0',
         '172.15.255.255',
@@ -307,6 +310,49 @@ test('isRFC1918', function (t) {
         for (var v in invalid) {
             var val = invalid[v];
             t2.ok(!IP.isRFC1918(val), val + ' invalid');
+        }
+
+        return t2.end();
+    });
+});
+
+test('isUniqueLocal', function (t) {
+    var valid = [
+        'fc00:5de::243',
+        'fd00::1',
+        'fd05:a:b:c::167',
+        'fc02::a:b:c:d',
+        'fddd::40e',
+        'fcff::20'
+    ];
+
+    t.test('valid', function (t2) {
+        for (var v in valid) {
+            var val = valid[v];
+            t2.ok(IP.isUniqueLocal(val), val + ' valid');
+        }
+
+        return t2.end();
+    });
+
+
+    var invalid = [
+        '2001:4860:4860::8888',
+        'fe00::1',
+        'fb00::20',
+        'a:b:c:d::20',
+        '123:456:789:0:0:987:654:321',
+        'fe80::92b8:d0ff:fe4b:c73b',
+        '::1',
+        '1.2.3.4',
+        '10.10.10.5',
+        '192.168.1.1'
+    ];
+
+    t.test('invalid', function (t2) {
+        for (var v in invalid) {
+            var val = invalid[v];
+            t2.ok(!IP.isUniqueLocal(val), val + ' invalid');
         }
 
         return t2.end();

@@ -77,6 +77,7 @@ function checkProvisionSuccess(newOwner, t) {
             nextIP = util_ip.ntoa(util_ip.aton(nextIP) + 1);
         }
         params.ip = nextIP;
+        params.ips = [ nextIP + '/24' ];
 
         h.addNetParamsToNic(state, params);
         t.deepEqual(res, params, 'nic params');
@@ -86,7 +87,7 @@ function checkProvisionSuccess(newOwner, t) {
 }
 
 
-function createNetworkPool(t, name, params) {
+function createNetworkPool(t, name, type, params) {
     var pidName = name + '-' + process.pid;
     napi.createNetworkPool(pidName, params, function (err, res) {
         if (h.ifErr(t, err, 'create network pool ' + name)) {
@@ -99,8 +100,9 @@ function createNetworkPool(t, name, params) {
         params.networks.sort();
         params.uuid = res.uuid;
         params.nic_tag = state.nicTag.name;
+        params.pool_type = type;
 
-        t.deepEqual(params, res, 'network pool ' + name);
+        t.deepEqual(res, params, 'network pool ' + name);
         state[name] = res;
         return t.end();
     });
@@ -221,14 +223,14 @@ test('Create second no owner network', function (t) {
 
 
 test('Create no owner network pool', function (t) {
-    createNetworkPool(t, 'noOwnerPool', {
+    createNetworkPool(t, 'noOwnerPool', 'ipv4', {
         networks: [ state.noOwner.uuid, state.noOwner2.uuid ]
     });
 });
 
 
 test('Create owner network pool', function (t) {
-    createNetworkPool(t, 'ownerPool', {
+    createNetworkPool(t, 'ownerPool', 'ipv4', {
         networks: [ state.network.uuid, state.ownerNet2.uuid ],
         owner_uuids: [ owner ]
     });
@@ -236,7 +238,7 @@ test('Create owner network pool', function (t) {
 
 
 test('Create owner2 network pool', function (t) {
-    createNetworkPool(t, 'ownerPool2', {
+    createNetworkPool(t, 'ownerPool2', 'ipv4', {
         networks: [ state.ownerNet3.uuid, state.ownerNet3.uuid ],
         owner_uuids: [ owner2 ]
     });

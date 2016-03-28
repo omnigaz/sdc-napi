@@ -31,8 +31,11 @@ var vasync = require('vasync');
 
 var MORAY_IPV4 = '10.0.2.15';
 var NON_MORAY_IPV4 = '10.0.2.115';
+var MORAY_IPV6 = 'fd00:3::40e';
+var NON_MORAY_IPV6 = 'fd00:3::34:20f3';
 var NAPI;
 var NETV4;
+var NETV6;
 var INVALID_PARAMS = [
     ['belongs_to_uuid', 'a', 'invalid UUID'],
     ['belongs_to_type', '', 'must not be empty'],
@@ -55,8 +58,9 @@ var MULTIPLE_PARAMS_REQ = [
 
 
 test('Initial setup', function (t) {
-    t.plan(4);
+    t.plan(6);
     var v4netParams = h.validNetworkParams();
+    var v6netParams = h.validIPv6NetworkParams();
 
     t.test('create client and server', function (t2) {
         h.createClientAndServer(function (err, res) {
@@ -85,8 +89,26 @@ test('Initial setup', function (t) {
         });
     });
 
+    t.test('create v6 network', function (t2) {
+        NAPI.createNetwork(v6netParams, function (err, res) {
+            h.ifErr(t2, err, 'create network');
+            NETV6 = res;
+
+            return t2.end();
+        });
+    });
+
     t.test('add IPv4 address to moray', function (t2) {
         NAPI.updateIP(NETV4.uuid, MORAY_IPV4, { reserved: true },
+            function (err) {
+            h.ifErr(t2, err, 'add IP to moray');
+
+            return t2.end();
+        });
+    });
+
+    t.test('add IPv6 address to moray', function (t2) {
+        NAPI.updateIP(NETV6.uuid, MORAY_IPV6, { reserved: true },
             function (err) {
             h.ifErr(t2, err, 'add IP to moray');
 
@@ -102,6 +124,24 @@ test('Initial setup', function (t) {
 
 test('Get IPv4 - non-existent network', function (t) {
     NAPI.getIP(mod_uuid.v4(), '1.2.3.4', function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 404, 'status code');
+        t.deepEqual(err.body, {
+            code: 'ResourceNotFound',
+            message: 'network not found'
+        }, 'Error body');
+
+        return t.end();
+    });
+});
+
+
+test('Get IPv6 - non-existent network', function (t) {
+    NAPI.getIP(mod_uuid.v4(), 'fd00::40e', function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
             return t.end();
@@ -250,6 +290,46 @@ test('Get IPv4 - record in moray', function (t) {
 });
 
 
+test('Get IPv6 - record not in moray', function (t) {
+    NAPI.getIP(NETV6.uuid, NON_MORAY_IPV6, function (err, obj, req, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj, {
+            ip: NON_MORAY_IPV6,
+            network_uuid: NETV6.uuid,
+            reserved: false,
+            free: true
+        }, 'response');
+
+        return t.end();
+    });
+});
+
+
+test('Get IPv6 - record in moray', function (t) {
+    NAPI.getIP(NETV6.uuid, MORAY_IPV6, function (err, obj, req, res) {
+        t.ifError(err, 'error returned');
+        if (err) {
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj, {
+            ip: MORAY_IPV6,
+            network_uuid: NETV6.uuid,
+            reserved: true,
+            free: false
+        }, 'response');
+
+        return t.end();
+    });
+});
+
+
 
 // --- Update tests
 
@@ -306,6 +386,39 @@ test('Update IPv4 - outside subnet', function (t) {
         inputs: invalid,
         func: function (ip, cb) {
             NAPI.updateIP(NETV4.uuid, ip, { reserved: true },
+                function (err, res) {
+                t.ok(err, 'error returned: ' + ip);
+                if (!err) {
+                    return cb();
+                }
+
+                t.equal(err.statusCode, 404, 'status code');
+                t.deepEqual(err.body, {
+                    code: 'ResourceNotFound',
+                    message: 'IP is not in subnet'
+                }, 'Error body');
+
+                return cb();
+            });
+        }
+    }, function () {
+        return t.end();
+    });
+});
+
+
+test('Update IPv6 - outside subnet', function (t) {
+    var invalid = [
+        'fe80::92b8:d0ff:fe4b:c73b',
+        '2001:4860:4860::8888',
+        'fc00:1:2::623',
+        '::'
+    ];
+
+    vasync.forEachParallel({
+        inputs: invalid,
+        func: function (ip, cb) {
+            NAPI.updateIP(NETV6.uuid, ip, { reserved: true },
                 function (err, res) {
                 t.ok(err, 'error returned: ' + ip);
                 if (!err) {
@@ -730,6 +843,61 @@ test('Update IPv4 - unassign (IP not in moray)', function (t) {
 });
 
 
+test('Update IPv6 - unassign (IP in moray)', function (t) {
+    var params = {
+        belongs_to_type: 'server',
+        belongs_to_uuid: mod_uuid.v4(),
+        owner_uuid: mod_uuid.v4()
+    };
+
+    NAPI.updateIP(NETV6.uuid, 'fd00:3::1234', params, function (err) {
+        t.ifError(err);
+
+        NAPI.updateIP(NETV6.uuid, 'fd00:3::1234', { unassign: 'true' },
+            function (err2, obj, req, res) {
+            t.ifError(err2);
+            if (err2) {
+                t.deepEqual(err.body, {}, 'error body');
+                return t.end();
+            }
+
+            t.equal(res.statusCode, 200, 'status code');
+            t.deepEqual(obj, {
+                ip: 'fd00:3::1234',
+                free: false,
+                network_uuid: NETV6.uuid,
+                owner_uuid: params.owner_uuid,
+                reserved: false
+            }, 'Response');
+
+            return t.end();
+        });
+    });
+});
+
+
+test('Update IPv6 - unassign (IP not in moray)', function (t) {
+    NAPI.updateIP(NETV6.uuid, 'fd00:3::1235', { unassign: 'true' },
+        function (err, obj, req, res) {
+        t.ifError(err);
+        if (err) {
+            t.deepEqual(err.body, {}, 'error body');
+            return t.end();
+        }
+
+        t.equal(res.statusCode, 200, 'status code');
+        t.deepEqual(obj, {
+            ip: 'fd00:3::1235',
+            free: true,
+            network_uuid: NETV6.uuid,
+            reserved: false
+        }, 'Response');
+
+        return t.end();
+    });
+});
+
+
 // --- List Tests
 
 function testIPv4List(t, opts, callback) {
@@ -747,6 +915,30 @@ test('Listing IPv4 failures', function (t) {
         var blot = common.badLimitOffTests[i];
         t.test(blot.bc_name, function (t2) {
             testIPv4List(t2, {
+                params: blot.bc_params,
+                expCode: blot.bc_expcode,
+                expErr: blot.bc_experr
+            });
+        });
+    }
+
+});
+
+function testIPv6List(t, opts, callback) {
+    assert.object(t, 't');
+    opts.type = 'ip';
+    opts.reqType = 'list';
+    NAPI.listIPs(NETV6.uuid, opts.params,
+        common.afterAPIcall.bind(null, t, opts, callback));
+}
+
+test('Listing IPv6 failures', function (t) {
+    t.plan(common.badLimitOffTests.length);
+
+     for (var i = 0; i < common.badLimitOffTests.length; i++) {
+        var blot = common.badLimitOffTests[i];
+        t.test(blot.bc_name, function (t2) {
+            testIPv6List(t2, {
                 params: blot.bc_params,
                 expCode: blot.bc_expcode,
                 expErr: blot.bc_experr

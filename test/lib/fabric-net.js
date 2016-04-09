@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 /*
@@ -17,6 +17,7 @@ var clone = require('clone');
 var common = require('./common');
 var config = require('./config');
 var fmt = require('util').format;
+var isIPv4 = require('net').isIPv4;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
@@ -78,7 +79,10 @@ function createFabricNet(t, opts, callback) {
     delete params.vlan_uuid;
 
     if (opts.fillInMissing && opts.exp) {
-        opts.exp.netmask = util_ip.bitsToNetmask(opts.exp.subnet.split('/')[1]);
+        var parts = opts.exp.subnet.split('/');
+        if (isIPv4(parts[0])) {
+            opts.exp.netmask = util_ip.bitsToNetmask(parts[1]);
+        }
         if (!opts.params.resolvers && !opts.exp.resolvers) {
             opts.exp.resolvers = [];
         }

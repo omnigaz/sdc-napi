@@ -5,11 +5,11 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2016, Joyent, Inc.
  */
 
 /*
- * Fabric tests
+ * Fabric unit tests
  */
 
 var clone = require('clone');
@@ -24,19 +24,17 @@ var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_net = require('../lib/net');
 var mod_portolan = require('../lib/portolan');
+var mod_portolan_moray = require('portolan-moray');
 var mod_vlan = require('../lib/vlan');
-var test = require('../lib/fabrics').testIfEnabled;
-
-
+var test = require('tape');
 
 // --- Globals
 
 
 
-var ADMIN_OWNER;    // Loaded in setup below
 var CREATED = {};
-// XXX: shouldn't have to do this!
-var NAPI = h.createNAPIclient();
+var MORAY;
+var NAPI;
 var OWNERS = [
     mod_uuid.v4(),
     mod_uuid.v4(),
@@ -170,29 +168,34 @@ var SERVERS = [
 var SERVER_NICS = [];
 
 
-
-// XXX: make test() here something that checks if overlays are enabled,
-// and if not, fails and ends the test
-
-
 // --- Setup
 
 
+test('Initial setup', function (t) {
+    t.test('create client and server', function (t2) {
+        h.createClientAndServer(function (err, res, moray) {
+            t.ifError(err, 'server creation');
+            t.ok(res, 'client');
+            t.ok(moray, 'moray');
+            NAPI = res;
+            MORAY = mod_portolan.moray_client = moray;
 
-test('setup', function (t) {
 
-    t.test('load UFDS admin UUID', function (t2) {
-        h.loadUFDSadminUUID(t2, function (adminUUID) {
-            if (adminUUID) {
-                ADMIN_OWNER = adminUUID;
-            }
-
-            return t2.end();
+            return t.end();
         });
+    });
+
+    t.test('initialize portolan consumer', function (t2) {
+        mod_portolan_moray.initConsumer({}, t2.end.bind(t2));
     });
 
     t.test('create default nic tag', mod_nic_tag.createDefault);
 
+    t.test('create nic tag', function (t2) {
+        mod_nic_tag.create(t2, {
+            name: 'nic_tag'
+        });
+    });
 });
 
 
@@ -202,6 +205,11 @@ test('setup', function (t) {
 
 
 test('overlay / underlay nic tags', function (t) {
+    t.test('create overlay nic tag', function (t2) {
+        mod_nic_tag.create(t2, {
+            name: OVERLAY_NIC_TAG
+        });
+    });
 
     t.test('overlay tag', function (t2) {
         mod_nic_tag.get(t2, {
@@ -215,6 +223,11 @@ test('overlay / underlay nic tags', function (t) {
         });
     });
 
+    t.test('create underlay nic tag', function (t2) {
+        mod_nic_tag.create(t2, {
+            name: UNDERLAY_NIC_TAG
+        });
+    });
 
     t.test('underlay tag', function (t2) {
         mod_nic_tag.get(t2, {
@@ -425,7 +438,6 @@ test('create network', function (t) {
             expErr: mod_err.subnetOverlap(NETS[2])
         });
     });
-
 
     t.test('create network: 3', function (t2) {
         mod_fabric_net.createAndGet(t2, {
@@ -798,12 +810,12 @@ test('provision server nics', function (t) {
             params: {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: constants.UFDS_ADMIN_UUID
             },
             exp: mod_net.addNetParams(REAL_NETS[0], {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: constants.UFDS_ADMIN_UUID
             })
         });
     });
@@ -829,13 +841,13 @@ test('provision server nics', function (t) {
             params: {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER,
+                owner_uuid: constants.UFDS_ADMIN_UUID,
                 underlay: true
             },
             exp: mod_net.addNetParams(REAL_NETS[0], {
                 belongs_to_type: 'server',
                 belongs_to_uuid: SERVERS[0],
-                owner_uuid: ADMIN_OWNER,
+                owner_uuid: constants.UFDS_ADMIN_UUID,
                 underlay: true
             })
         });
@@ -1175,7 +1187,7 @@ test('provision gateway', function (t) {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: gw,
                 ip: NETS[0].gateway,
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: constants.UFDS_ADMIN_UUID
             },
             exp: mod_net.addNetParams(NETS[0], {
                 belongs_to_type: 'zone',
@@ -1184,7 +1196,7 @@ test('provision gateway', function (t) {
                 internet_nat: true,
                 gateway_provisioned: true,
                 nic_tag: nicTags[0],
-                owner_uuid: ADMIN_OWNER
+                owner_uuid: constants.UFDS_ADMIN_UUID
             })
         });
     });
@@ -1389,6 +1401,11 @@ test('delete vlan with networks on it not allowed', function (t) {
 
 
 
+
+// --- Teardown
+
+
+
 test('teardown', function (t) {
     t.test('delete created nics', mod_nic.delAllCreated);
 
@@ -1399,5 +1416,11 @@ test('teardown', function (t) {
     t.test('delete created VLANs', mod_vlan.delAllCreated);
 
     t.test('close portolan client', mod_portolan.closeClient);
+});
 
+test('Stop server', function (t) {
+    h.stopServer(function (err) {
+        t.ifError(err, 'server stop');
+        t.end();
+    });
 });

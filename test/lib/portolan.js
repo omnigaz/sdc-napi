@@ -222,6 +222,9 @@ function underlayMapping(t, opts, callback) {
 
 
 module.exports = {
+    set mod_moray(val) {
+        mod_moray = val;
+    },
     closeClient: closeClient,
     notFoundErr: portolanNotFoundErr,
     nicVnetID: nicVnetID,

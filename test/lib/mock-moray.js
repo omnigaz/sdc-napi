@@ -27,8 +27,12 @@ var verror = require('verror');
 
 
 
-var BUCKETS = {};
-var BUCKET_VALUES = {};
+var BUCKETS = {
+    'portolan_underlay_mappings': {}
+};
+var BUCKET_VALUES = {
+    'portolan_underlay_mappings': {}
+};
 var LAST_MORAY_ERROR;
 var MORAY_ERRORS = {};
 
@@ -176,7 +180,6 @@ function FakeMoray(opts) {
 
     this.log = opts.log.child({ component: 'mock-moray' });
     this._version = opts.version || 2;
-    BUCKET_VALUES = {};
     EventEmitter.call(this);
 }
 
@@ -343,6 +346,10 @@ FakeMoray.prototype.delObject = function delObject(bucket, key, callback) {
 
 
 FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
+    if (opts === undefined) {
+        opts = {};
+    }
+
     var res = new EventEmitter;
     var filterObj = ldapjs.parseFilter(filter);
     var limit = opts.limit || 1000;

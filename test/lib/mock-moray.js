@@ -353,7 +353,17 @@ FakeMoray.prototype.findObjects = function findObjects(bucket, filter, opts) {
         if (typeof (a) === 'number') {
             return a - b;
         } else {
-            return util_ip.compareTo(a, b);
+            try {
+                return util_ip.compareTo(a, b);
+            } catch (e) {
+                if (a < b) {
+                    return -1;
+                } else if (a > b) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            }
         }
     }
 

@@ -18,7 +18,6 @@ var mod_aggr = require('../lib/aggr');
 var mod_err = require('../../lib/util/errors');
 var mod_nic = require('../lib/nic');
 var test = require('tape');
-var util = require('util');
 var vasync = require('vasync');
 
 
@@ -37,36 +36,6 @@ var uuids = [
     'a1e38a64-85c6-41cc-bf7b-4d230ab84aa0',
     '755f4a24-397c-4885-bd67-08d8fe688fae'
 ];
-
-
-
-// --- Helpers
-
-
-
-/**
- * Create an aggregation, but expect an error
- */
-function expCreateErr(t, params, expErr, callback) {
-    mod_aggr.create(t, state, params, { expectError: true },
-        function (err, res) {
-        if (!err) {
-            t.deepEqual(res, {}, 'res should not exist');
-            return t.end();
-        }
-
-        t.deepEqual(err.body, h.invalidParamErr({
-            errors: [ expErr ],
-            message: 'Invalid parameters'
-        }), 'Error body');
-
-        if (callback) {
-            return callback();
-        } else {
-            return t.end();
-        }
-    });
-}
 
 
 
@@ -376,11 +345,13 @@ test('teardown', function (t) {
             inputs: state.aggrs,
             func: function _delAggr(aggr, cb) {
                 mod_aggr.del(t2, aggr, function (err) {
+                    t2.ifError(err, 'deleted aggr');
                     return cb();
                 });
             }
 
         }, function (err) {
+            t2.ifError(err, 'deleted aggrs');
             return t2.end();
         });
     });

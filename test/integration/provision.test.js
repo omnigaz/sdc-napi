@@ -25,7 +25,6 @@ var mod_uuid = require('node-uuid');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
-var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 
 
@@ -438,7 +437,7 @@ function deleteTwoNics(t) {
                 }
 
                 napi.getIP(nic.network_uuid, nic.ip, function (err2, ip) {
-                    if (h.ifErr(t, err, 'get IP ' + nic.ip)) {
+                    if (h.ifErr(t, err2, 'get IP ' + nic.ip)) {
                         return cb(err);
                     }
 
@@ -529,7 +528,7 @@ function deleteAll(t) {
                     }
 
                     napi.getIP(nic.network_uuid, nic.ip, function (err2, ip) {
-                        if (h.ifErr(t2, err, 'get IP ' + nic.ip)) {
+                        if (h.ifErr(t2, err2, 'get IP ' + nic.ip)) {
                             return cb(err);
                         }
 
@@ -749,6 +748,7 @@ test('delete: in order', function (t) {
             delNext
         ]
     }, function (err) {
+        t.ifError(err, 'successful deletes');
         return t.end();
     });
 });
@@ -783,6 +783,7 @@ test('reprovision: by modification time', function (t) {
             provisionNext
         ]
     }, function (err) {
+        t.ifError(err, 'successful provisions');
         t.deepEqual(state.delayed.map(function (n) {
             return n.ip;
         }), provisioned, 'IPs reprovisioned in modification order');

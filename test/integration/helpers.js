@@ -12,15 +12,11 @@
  * Test helpers for NAPI integration tests
  */
 
-var assert = require('assert');
-var bunyan = require('bunyan');
 var common = require('../lib/common');
 var config = require('../lib/config');
 var fmt = require('util').format;
-var fs = require('fs');
 var mod_client = require('../lib/client');
 var mod_net = require('../lib/net');
-var path = require('path');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
@@ -214,7 +210,7 @@ function deletePreviousNetworks(t) {
             inputs: matching,
             func: function _delOne(net, cb) {
                 napi.deleteNetwork(net.uuid, { force: true }, function (dErr) {
-                    common.ifErr(t, err, fmt('delete network %s (%s)',
+                    common.ifErr(t, dErr, fmt('delete network %s (%s)',
                         net.uuid, net.name));
 
                     return cb();
@@ -386,14 +382,19 @@ module.exports = {
     doneWithError: doneWithError,
     ifErr: common.ifErr,
     invalidParamErr: common.invalidParamErr,
-    get lastNetPrefix() {
-        return fmt(TEST_NET_PFX, NET_NUM - 1);
-    },
     loadUFDSadminUUID: loadUFDSadminUUID,
     randomMAC: common.randomMAC,
     reqOpts: common.reqOpts,
     similar: similar,
-    get ufdsAdminUuid() {
+    validNetworkParams: validNetworkParams
+};
+
+Object.defineProperty(module.exports, 'lastNetPrefix', {
+    get: function () { return fmt(TEST_NET_PFX, NET_NUM - 1); }
+});
+
+Object.defineProperty(module.exports, 'ufdsAdminUuid', {
+    get: function () {
         if (!ADMIN_UUID) {
             throw new Error(
                 'UFDS admin UUID undefined! ' +
@@ -401,6 +402,5 @@ module.exports = {
         }
 
         return ADMIN_UUID;
-    },
-    validNetworkParams: validNetworkParams
-};
+    }
+});

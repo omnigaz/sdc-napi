@@ -13,7 +13,6 @@
  */
 
 var assert = require('assert-plus');
-var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
@@ -24,7 +23,6 @@ var mod_vlan = require('../lib/vlan');
 var mod_vasync = require('vasync');
 var test = require('tape');
 var testIfFabricsEnabled = require('../lib/fabrics').testIfEnabled;
-var util = require('util');
 
 
 
@@ -204,10 +202,11 @@ function testOverlap(t, testParams) {
                         created.push(oNet);
                     }
 
-                    return cb();
+                    return cb(err);
                 });
             }
-        }, function () {
+        }, function (err) {
+            t2.ifError(err, 'successfully created non-overlapping networks');
             return t2.end();
         });
     });

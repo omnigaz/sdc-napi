@@ -18,10 +18,8 @@ var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
 var mod_net = require('../lib/net');
-var mod_nic = require('../lib/nic');
 var mod_pool = require('../lib/pool');
 var test = require('tape');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
 

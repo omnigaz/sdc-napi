@@ -23,7 +23,6 @@ var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
-var util = require('util');
 var util_mac = require('../../lib/util/mac');
 var vasync = require('vasync');
 

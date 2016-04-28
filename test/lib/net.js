@@ -19,10 +19,8 @@ var fmt = require('util').format;
 var log = require('./log');
 var mod_client = require('./client');
 var mod_vasync = require('vasync');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 
-var doneRes = common.doneRes;
 var doneErr = common.doneErr;
 
 

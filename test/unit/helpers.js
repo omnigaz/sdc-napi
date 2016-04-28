@@ -13,19 +13,11 @@
  */
 
 var assert = require('assert-plus');
-var bunyan = require('bunyan');
-var clone = require('clone');
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
-var fs = require('fs');
-var EventEmitter = require('events').EventEmitter;
-var ldapjs = require('ldapjs');
-var mod_client = require('../lib/client');
 var mod_server = require('../lib/server');
-var restify = require('restify');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');
-var verror = require('verror');
 
 
 
@@ -231,14 +223,8 @@ module.exports = {
     missingParamErr: common.missingParamErr,
     missingParam: missingParam,
     nextProvisionableIP: nextProvisionableIP,
-    get NET_NUM() {
-        return NET_NUM;
-    },
     randomMAC: common.randomMAC,
     reqOpts: common.reqOpts,
-    get server() {
-        return SERVER;
-    },
     stopServer: stopServer,
     uuidSort: common.uuidSort,
     validIPparams: validIPparams,
@@ -246,3 +232,11 @@ module.exports = {
     validIPv6NetworkParams: validIPv6NetworkParams,
     validNetworkParams: validIPv4NetworkParams
 };
+
+Object.defineProperty(module.exports, 'NET_NUM', {
+    get: function () { return NET_NUM; }
+});
+
+Object.defineProperty(module.exports, 'server', {
+    get: function () { return SERVER; }
+});

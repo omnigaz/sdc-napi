@@ -19,7 +19,6 @@ var mod_err = require('../../lib/util/errors');
 var mod_moray = require('../lib/moray');
 var constants = require('../../lib/util/constants');
 var test = require('tape');
-var util = require('util');
 
 
 

@@ -151,7 +151,7 @@ test('PUT /network_pools/:uuid', function (t) {
         t.deepEqual(res, params, 'update params');
 
         return napi.getNetworkPool(res.uuid, function (err2, res2) {
-            t.ifError(err, 'get network pool: ' + params.uuid);
+            t.ifError(err2, 'get network pool: ' + params.uuid);
             if (err) {
                 return t.end();
             }

@@ -53,11 +53,10 @@ FakeWFclient.prototype.createJob = function createJob(name, params, callback) {
 
 
 module.exports = {
-    FakeWFclient: FakeWFclient,
-    get jobs() {
-        return JOBS;
-    },
-    set jobs(val) {
-        JOBS = val;
-    }
+    FakeWFclient: FakeWFclient
 };
+
+Object.defineProperty(module.exports, 'jobs', {
+    get: function () { return JOBS; },
+    set: function (val) { JOBS = val; }
+});

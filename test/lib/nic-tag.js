@@ -13,7 +13,6 @@
  */
 
 var assert = require('assert-plus');
-var clone = require('clone');
 var common = require('./common');
 var config = require('./config');
 var log = require('./log');
@@ -21,7 +20,6 @@ var mod_client = require('./client');
 var mod_vasync = require('vasync');
 var util = require('util');
 
-var doneRes = common.doneRes;
 var doneErr = common.doneErr;
 
 

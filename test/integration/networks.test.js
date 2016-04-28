@@ -16,7 +16,6 @@ var constants = require('../../lib/util/constants');
 var extend = require('xtend');
 var fmt = require('util').format;
 var h = require('./helpers');
-var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
 var mod_uuid = require('node-uuid');
 var mod_vasync = require('vasync');
@@ -402,7 +401,6 @@ test('network update: resolvers and name', function (tt) {
         updateParams.uuid = params.uuid;
 
         mod_net.update(t, {
-            fillIn: [ 'job_uuid' ],
             params: updateParams,
             exp: params
         });
@@ -410,8 +408,6 @@ test('network update: resolvers and name', function (tt) {
 
 
     tt.test('get network', function (t) {
-        delete params.job_uuid;
-
         mod_net.get(t, {
             params: {
                 uuid: params.uuid

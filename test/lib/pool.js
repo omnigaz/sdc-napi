@@ -18,7 +18,6 @@ var common = require('./common');
 var log = require('./log');
 var mod_client = require('./client');
 var util = require('util');
-var verror = require('verror');
 
 var doneRes = common.doneRes;
 var doneErr = common.doneErr;

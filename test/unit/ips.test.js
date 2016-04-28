@@ -19,7 +19,6 @@ var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_uuid = require('node-uuid');
-var restify = require('restify');
 var test = require('tape');
 var util = require('util');
 var vasync = require('vasync');
@@ -30,7 +29,6 @@ var vasync = require('vasync');
 
 
 
-var d = {};
 var MORAY_IP = '10.0.2.15';
 var NON_MORAY_IP = '10.0.2.115';
 var NAPI;

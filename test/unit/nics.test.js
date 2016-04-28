@@ -12,8 +12,6 @@
  * Unit tests for nic endpoints
  */
 
-var assert = require('assert-plus');
-var clone = require('clone');
 var common = require('../lib/common');
 var constants = require('../../lib/util/constants');
 var extend = require('xtend');
@@ -27,9 +25,6 @@ var mod_net = require('../lib/net');
 var mod_nic = require('../lib/nic');
 var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
-var Network = require('../../lib/models/network').Network;
-var NicTag = require('../../lib/models/nic-tag').NicTag;
-var restify = require('restify');
 var test = require('tape');
 var util = require('util');
 var util_ip = require('../../lib/util/ip');

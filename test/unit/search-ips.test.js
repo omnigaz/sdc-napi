@@ -12,9 +12,6 @@
  * Unit tests for /search/ips endpoints
  */
 
-var assert = require('assert-plus');
-var async = require('async');
-var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var fmt = require('util').format;
 var h = require('./helpers');
@@ -22,10 +19,7 @@ var mod_err = require('../../lib/util/errors');
 var mod_net = require('../lib/net');
 var mod_nicTag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
-var restify = require('restify');
 var test = require('tape');
-var util = require('util');
-var vasync = require('vasync');
 
 
 

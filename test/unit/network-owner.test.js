@@ -12,14 +12,12 @@
  * Unit tests for network endpoints
  */
 
-var assert = require('assert-plus');
 var constants = require('../../lib/util/constants');
 var helpers = require('./helpers');
 var mod_err = require('../../lib/util/errors');
 var mod_nic = require('../lib/nic');
 var mod_uuid = require('node-uuid');
 var test = require('tape');
-var util = require('util');
 var util_ip = require('../../lib/util/ip');
 
 

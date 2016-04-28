@@ -15,7 +15,6 @@
 var h = require('./helpers');
 var mod_nic_tag = require('../lib/nic-tag');
 var test = require('tape');
-var util = require('util');
 var vasync = require('vasync');
 
 

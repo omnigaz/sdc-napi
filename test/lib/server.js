@@ -12,10 +12,8 @@
  * NAPI test server helpers
  */
 
-var assert = require('assert-plus');
 var common = require('./common');
 var config = require('./config');
-var fs = require('fs');
 var FakeWFclient = require('./mock-wf').FakeWFclient;
 var log = require('./log');
 var mock_moray = require('./mock-moray');

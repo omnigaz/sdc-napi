@@ -12,6 +12,8 @@
  * Unit tests for nic endpoints
  */
 
+'use strict';
+
 var assert = require('assert-plus');
 var async = require('async');
 var clone = require('clone');
@@ -561,7 +563,7 @@ test('Provision nic - on network pool with IP', function (t) {
         belongs_to_type: 'zone',
         belongs_to_uuid: mod_uuid.v4(),
         ip: NETS[1].provision_start_ip,
-        owner_uuid:  mod_uuid.v4()
+        owner_uuid: mod_uuid.v4()
     };
 
     NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {
@@ -599,7 +601,7 @@ test('Provision nic - on network pool', function (t) {
             var params = {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: mod_uuid.v4(),
-                owner_uuid:  mod_uuid.v4()
+                owner_uuid: mod_uuid.v4()
             };
             var nextIPnum = ipNums.shift();
             var nextIP = util.format('10.0.%d.%d',
@@ -632,7 +634,7 @@ test('Provision nic - on network pool', function (t) {
             var params = {
                 belongs_to_type: 'zone',
                 belongs_to_uuid: mod_uuid.v4(),
-                owner_uuid:  mod_uuid.v4()
+                owner_uuid: mod_uuid.v4()
             };
 
             NAPI.provisionNic(POOLS[0].uuid, params, function (err, res) {

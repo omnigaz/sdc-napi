@@ -12,6 +12,8 @@
  * Regression test for NET-281. We need to make requests that have invalid JSON
  * payloads and verify that we receive a 4xx class error.
  *
+ * 'use strict';
+ *
  * Note, we only test top-level routes at the moment so as to ensure that if
  * this crashes, we don't leave around any garbage. It's also simplest to test
  * POST here, as that will actually allow the server to be accepting a JSON body
@@ -21,6 +23,8 @@
  * versions on purpose. This allows us to ensure that we can send out malformed
  * JSON.
  */
+
+'use strict';
 
 var config = require('../lib/config');
 var mod_restify = require('restify');

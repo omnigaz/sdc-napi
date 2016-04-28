@@ -12,7 +12,8 @@
  * Unit tests for network endpoints
  */
 
-var assert = require('assert-plus');
+'use strict';
+
 var async = require('async');
 var clone = require('clone');
 var common = require('../lib/common');
@@ -23,13 +24,10 @@ var mod_err = require('../../lib/util/errors');
 var mod_ip = require('../../lib/models/ip');
 var mod_moray = require('../lib/moray');
 var mod_net = require('../lib/net');
-var mod_nic = require('../lib/nic');
 var mod_test_err = require('../lib/err');
 var mod_uuid = require('node-uuid');
-var mod_wf = require('../lib/mock-wf');
 var test = require('tape');
 var util = require('util');
-var util_ip = require('../../lib/util/ip');
 var vasync = require('vasync');
 
 
@@ -71,8 +69,9 @@ test('Initial setup', function (t) {
 
         // Match the name of the nic tag in h.validNetworkParams()
         NAPI.createNicTag('nic_tag', function (err2, res2) {
-            t.ifError(err2);
             TAG = res2;
+            t.ifError(err2, 'no error creating NIC tag');
+            t.ok(TAG, 'created NIC tag');
             t.end();
         });
     });
@@ -271,6 +270,11 @@ test('Create network - invalid parameters', function (t) {
         ['provision_end_ip', fmt('10.0.%d.254', num - 1), MSG.end_outside],
         ['provision_end_ip', fmt('10.0.%d.1', num + 1), MSG.end_outside],
         ['provision_end_ip', fmt('10.0.%d.255', num), MSG.end_broadcast],
+
+        ['resolvers', true, constants.msg.ARRAY_OF_STR],
+        ['resolvers', 5, constants.msg.ARRAY_OF_STR],
+        ['resolvers', [ '1.2.3.4', true ], [ true ], 'invalid IP'],
+        ['resolvers', [ 5, true ], [ 5, true ], 'invalid IPs'],
 
         ['routes', { 'asdf': 'asdf', 'foo': 'bar' },
             [ 'asdf', 'asdf', 'foo', 'bar' ],
@@ -520,6 +524,9 @@ test('Create network where mtu nic_tag > network > default', function (t) {
             return t.end();
         }
 
+        nicTagParams.uuid = nictag.uuid;
+        t.deepEqual(nictag, nicTagParams, 'correct nictag result');
+
         var networkParams = h.validNetworkParams({
             nic_tag: nicTagName,
             mtu: constants.MTU_DEFAULT + 1000
@@ -560,6 +567,9 @@ test('Create network where mtu == nic_tag == max', function (t) {
         if (h.ifErr(t, err, 'nic tag creation')) {
             return t.end();
         }
+
+        nicTagParams.uuid = nictag.uuid;
+        t.deepEqual(nictag, nicTagParams, 'correct nictag result');
 
         var networkParams = h.validNetworkParams({
             nic_tag: nicTagName,

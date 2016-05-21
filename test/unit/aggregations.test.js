@@ -18,7 +18,6 @@ var clone = require('clone');
 var constants = require('../../lib/util/constants');
 var mod_aggr = require('../lib/aggr');
 var mod_err = require('../../lib/util/errors');
-var mod_moray = require('../lib/moray');
 var mod_nic = require('../lib/nic');
 var mod_nic_tag = require('../lib/nic-tag');
 var mod_uuid = require('node-uuid');
@@ -32,6 +31,7 @@ var vasync = require('vasync');
 
 
 
+var MORAY;
 var NAPI;
 var owner = 'e597afe2-b4a6-4842-81d3-f5a7a98404b1';
 var state = {
@@ -154,10 +154,12 @@ test('setup', function (t) {
     t.plan(6);
 
     t.test('create client and server', function (t2) {
-        h.createClientAndServer(function (err, res) {
+        h.createClientAndServer(function (err, res, moray) {
             t2.ifError(err, 'server creation');
             t2.ok(res, 'client');
+            t2.ok(moray, 'moray');
             NAPI = res;
+            MORAY = moray;
 
             return t2.end();
         });
@@ -253,14 +255,17 @@ test('create', function (t) {
                 return t2.end();
             }
 
-            var morayObj = mod_moray.getObj('napi_aggregations', exp.id);
-            t2.ok(morayObj, 'got moray object');
-            res.macs = params.macs.map(function (m) {
-                return util_mac.aton(m);
-            });
+            MORAY.getObject('napi_aggregations', exp.id,
+                function (err2, morayObj) {
+                t2.ifError(err2, 'Getting aggregation should succeed');
+                t2.ok(morayObj, 'Got Moray object');
+                res.macs = params.macs.map(function (m) {
+                    return util_mac.aton(m);
+                });
 
-            t2.deepEqual(morayObj, res, 'raw moray object');
-            return t2.end();
+                t2.deepEqual(morayObj.value, res, 'Raw Moray object');
+                t2.end();
+            });
         });
     });
 
@@ -382,7 +387,7 @@ test('create', function (t) {
 
 
     t.test('invalid: nic has wrong belongs_to_type', function (t2) {
-        var macs = [ state.zone_nics[0].mac, state.zone_nics[1].mac ];
+        var macs = [ state.zone_nics[0].mac, state.zone_nics[1].mac ].sort();
 
         mod_aggr.create(t2, {
             params: {

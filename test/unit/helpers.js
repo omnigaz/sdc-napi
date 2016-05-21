@@ -58,11 +58,9 @@ function createClient(t) {
  * Creates a test NAPI server, and returns a client for accessing it
  */
 function createClientAndServer(callback) {
-    mod_server._create({
-        unitTest: true
-    }, function (err, res) {
+    mod_server._create({}, function (err, res) {
         SERVER = res.server;
-        return callback(null, res.client);
+        return callback(null, res.client, res.moray);
     });
 }
 
@@ -123,6 +121,8 @@ function stopServer(callback) {
         return callback();
     }
 
+    SERVER.moray.stop();
+
     return SERVER.stop(callback);
 }
 
@@ -171,7 +171,7 @@ function validNicparams(override) {
  */
 function validIPv4NetworkParams(override) {
     var newNet = {
-        name: 'myname',
+        name: 'myname' + NET_NUM,
         nic_tag: 'nic_tag',
         provision_end_ip: util.format('10.0.%d.254', NET_NUM),
         provision_start_ip: util.format('10.0.%d.1', NET_NUM),
@@ -196,7 +196,7 @@ function validIPv4NetworkParams(override) {
 function validIPv6NetworkParams(override) {
     var NET_HEX = NET_NUM.toString(16);
     var newNet = {
-        name: 'myname',
+        name: 'myname' + NET_NUM,
         nic_tag: 'nic_tag',
         provision_end_ip: util.format('fc00:%s::ffff:ffff:ffff:ffff', NET_HEX),
         provision_start_ip: util.format('fc00:%s::1', NET_HEX),

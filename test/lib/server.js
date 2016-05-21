@@ -16,7 +16,7 @@ var common = require('./common');
 var config = require('./config');
 var FakeWFclient = require('./mock-wf').FakeWFclient;
 var log = require('./log');
-var mock_moray = require('./mock-moray');
+var mock_moray = require('moray-sandbox');
 var mod_client = require('./client');
 var NAPI = require('../../lib/napi').NAPI;
 
@@ -43,6 +43,7 @@ function closeServer(t) {
         return t.end();
     }
 
+    SERVER.moray.stop();
     SERVER.stop(function (err) {
         t.ifErr(err, 'stopping server');
         return t.end();
@@ -71,46 +72,44 @@ function createServer(t) {
  * Create a test server
  */
 function createTestServer(opts, callback) {
-    var server = new NAPI({
-        config: config.server,
-        log: log.child({
-            component: 'test-server'
-        })
+    var log_child = log.child({
+        component: 'test-server'
     });
-    SERVER = server;
 
-    server.wfapi = new FakeWFclient({ log: log });
+    mock_moray.create(log_child, function (err, moray) {
+        var server = new NAPI({
+            config: config.server,
+            log: log_child
+        });
+        SERVER = server;
 
-    if (opts.unitTest) {
         server.initialDataLoaded = true;
-        server.moray = new mock_moray.FakeMoray({ log: log });
-    }
+        server.wfapi = new FakeWFclient({ log: log });
+        server.moray = moray;
 
-    server.on('connected', function _afterConnect() {
-        log.debug('server connected');
-        server.init();
-    });
+        server.on('connected', function _afterConnect() {
+            log.debug('server connected');
+            server.init();
+        });
 
-    server.on('initialized', function _afterReady() {
-        log.debug('server initialized');
+        server.on('initialized', function _afterReady() {
+            log.debug('server initialized');
 
-        var client = common.createClient(SERVER.info().url);
-        mod_client.set(client);
-        return callback(null, { server: SERVER, client: client });
-    });
+            var client = common.createClient(SERVER.info().url);
+            mod_client.set(client);
+            callback(null, { server: SERVER, client: client, moray: moray });
+        });
 
-    server.start(function _afterStart(startErr) {
-        log.debug('server started');
-        if (startErr) {
-            return callback(startErr);
-        }
+        server.start(function _afterStart(startErr) {
+            log.debug('server started');
+            if (startErr) {
+                return callback(startErr);
+            }
 
-        if (opts.unitTest) {
             // This is normally emitted when the moray client connects, but
-            // we have a mock moray client that doesn't actuall connect to
-            // anything:
+            // we took care of setting the Moray client to the mock ourselves:
             server.emit('connected');
-        }
+        });
     });
 }
 

@@ -16,7 +16,6 @@ var assert = require('assert-plus');
 var common = require('../lib/common');
 var h = require('./helpers');
 var mod_err = require('../../lib/util/errors');
-var mod_moray = require('../lib/moray');
 var constants = require('../../lib/util/constants');
 var test = require('tape');
 
@@ -27,6 +26,7 @@ var test = require('tape');
 
 
 var INVALID_MSG = 'must only contain numbers, letters and underscores';
+var MORAY;
 var NAPI;
 var cur = 0;
 
@@ -56,10 +56,12 @@ function newTag(t, callback) {
 
 
 test('Create client and server', function (t) {
-    h.createClientAndServer(function (err, res) {
+    h.createClientAndServer(function (err, res, moray) {
         t.ifError(err, 'server creation');
         t.ok(res, 'client');
+        t.ok(moray, 'moray');
         NAPI = res;
+        MORAY = moray;
         t.end();
     });
 });
@@ -72,26 +74,29 @@ test('Create client and server', function (t) {
 test('Create nic tag', function (t) {
     NAPI.createNicTag('newtagname', function (err, obj, req, res) {
         if (h.ifErr(t, err, 'nic tag create')) {
-            return t.end();
+            t.end();
+            return;
         }
 
-        var added = mod_moray.getObj('napi_nic_tags', 'newtagname');
         t.equal(res.statusCode, 200, 'status code');
-        var expObj = {
-            name: 'newtagname',
-            uuid: added.uuid,
-            mtu: constants.MTU_DEFAULT
-        };
-        t.deepEqual(obj, expObj, 'create response');
+        MORAY.getObject('napi_nic_tags', 'newtagname', function (mErr, added) {
+            t.ifError(mErr, 'Getting NIC tag should succeed');
+            var expObj = {
+                name: 'newtagname',
+                uuid: added.value.uuid,
+                mtu: constants.MTU_DEFAULT
+            };
+            t.deepEqual(obj, expObj, 'create response');
 
-        NAPI.getNicTag('newtagname', function (err2, res2) {
-            if (h.ifErr(t, err2, 'nic tag get')) {
+            NAPI.getNicTag('newtagname', function (err2, res2) {
+                if (h.ifErr(t, err2, 'nic tag get')) {
+                    return t.end();
+                }
+
+                t.deepEqual(res2, expObj, 'get response');
+
                 return t.end();
-            }
-
-            t.deepEqual(res2, expObj, 'get response');
-
-            return t.end();
+            });
         });
     });
 });
@@ -178,25 +183,29 @@ test('Create nic tag - with MTU', function (t) {
     NAPI.createNicTag('newtagnamemtu', { mtu : constants.MTU_MAX },
         function (err, obj, req, res) {
         if (h.ifErr(t, err, 'nic tag create - MTU')) {
-            return t.end();
+            t.end();
+            return;
         }
 
-        var added = mod_moray.getObj('napi_nic_tags', 'newtagnamemtu');
         t.equal(res.statusCode, 200, 'status code - MTU');
-        var expObj = {
-            name: 'newtagnamemtu',
-            uuid: added.uuid,
-            mtu : constants.MTU_MAX
-        };
-        t.deepEqual(obj, expObj, 'create response - MTU');
+        MORAY.getObject('napi_nic_tags', 'newtagnamemtu',
+            function (mErr, added) {
+            t.ifError(mErr, 'Getting NIC tag should succeed');
+            var expObj = {
+                name: 'newtagnamemtu',
+                uuid: added.value.uuid,
+                mtu : constants.MTU_MAX
+            };
+            t.deepEqual(obj, expObj, 'create response - MTU');
 
-        NAPI.getNicTag('newtagnamemtu', function (_err, _obj) {
-            if (h.ifErr(t, _err, 'nic tag get - MTU')) {
+            NAPI.getNicTag('newtagnamemtu', function (_err, _obj) {
+                if (h.ifErr(t, _err, 'nic tag get - MTU')) {
+                    return t.end();
+                }
+
+                t.deepEqual(_obj, expObj, 'get response - MTU');
                 return t.end();
-            }
-
-            t.deepEqual(_obj, expObj, 'get response - MTU');
-            return t.end();
+            });
         });
     });
 });
@@ -265,29 +274,32 @@ test('Create admin nic tag - with default MTU', function (t) {
     NAPI.createNicTag('admin', { mtu : constants.MTU_DEFAULT },
         function (err, obj, req, res) {
         if (h.ifErr(t, err, 'nic tag create ')) {
-            return t.end();
+            t.end();
+            return;
         }
 
-        var added = mod_moray.getObj('napi_nic_tags', 'admin');
         t.equal(res.statusCode, 200, 'status code');
-        var expObj = {
-            name: 'admin',
-            uuid: added.uuid,
-            mtu : constants.MTU_DEFAULT
-        };
-        t.deepEqual(obj, expObj, 'create response');
+        MORAY.getObject('napi_nic_tags', 'admin', function (mErr, added) {
+            t.ifError(mErr, 'Getting NIC tag should succeed');
+            var expObj = {
+                name: 'admin',
+                uuid: added.value.uuid,
+                mtu : constants.MTU_DEFAULT
+            };
+            t.deepEqual(obj, expObj, 'create response');
 
-        NAPI.getNicTag('admin', function (_err, _obj) {
-            if (h.ifErr(t, _err, 'nic tag get')) {
-                return t.end();
-            }
+            NAPI.getNicTag('admin', function (_err, _obj) {
+                if (h.ifErr(t, _err, 'nic tag get')) {
+                    return t.end();
+                }
 
-            t.deepEqual(_obj, expObj, 'get response');
+                t.deepEqual(_obj, expObj, 'get response');
 
-            // clean up 'admin' nictag, tested elsewhere.
-            return NAPI.deleteNicTag('admin', function (__err) {
-                t.ifError(__err, 'err cleaning up admin nic tag');
-                return t.end();
+                // clean up 'admin' nictag, tested elsewhere.
+                return NAPI.deleteNicTag('admin', function (__err) {
+                    t.ifError(__err, 'err cleaning up admin nic tag');
+                    return t.end();
+                });
             });
         });
     });

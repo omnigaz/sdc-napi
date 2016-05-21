@@ -105,6 +105,7 @@ pkg: all $(SMF_MANIFESTS)
 		$(TOP)/sapi_manifests \
 		$(TOP)/sbin \
 		$(INSTDIR)/
+	rm -r $(INSTDIR)/node_modules/moray-sandbox
 	cp smf/manifests/*.xml $(INSTDIR)/smf/manifests
 	cp $(TOP)/test/config.json $(INSTDIR)/test/
 	cp $(TOP)/test/runtest $(INSTDIR)/test/

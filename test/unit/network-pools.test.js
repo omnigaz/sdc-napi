@@ -258,6 +258,27 @@ test('Initial setup', function (t) {
             });
         });
 
+        t.test('create pool4', function (t2) {
+            var name = 'pool4-' + process.pid;
+            var params = {
+                pool_type: 'ipv4',
+                networks: [ NETS[0].uuid, NETS[1].uuid ]
+            };
+
+            NAPI.createNetworkPool(name, params, function (err2, res2) {
+                t.ifErr(err2);
+                if (!err2) {
+                    POOLS.push(res2);
+                    params.name = name;
+                    params.uuid = res2.uuid;
+                    params.nic_tag = NETS[0].nic_tag;
+                    t2.deepEqual(res2, params, 'result');
+                }
+
+                return t2.end();
+            });
+        });
+
         t.end();
     });
 });
@@ -677,6 +698,53 @@ test('List pools', function (t) {
     });
 });
 
+test('List pools - name filter', function (t) {
+    NAPI.listNetworkPools({ name: POOLS[0].name }, function (err, res) {
+        if (h.ifErr(t, err, 'failed to list pools')) {
+            t.end();
+            return;
+        }
+
+        t.deepEqual(res.length, 1, 'There should only be one pool');
+        t.deepEqual(res[0], POOLS[0], 'Correct pool returned');
+        t.end();
+    });
+});
+
+test('List pools - single network filter', function (t) {
+    NAPI.listNetworkPools({ networks: NETS[4].uuid }, function (err, res) {
+        if (h.ifErr(t, err, 'failed to list pools')) {
+            t.end();
+            return;
+        }
+
+        t.deepEqual(res.length, 1, 'There should only be one pool');
+        t.deepEqual(res[0], POOLS[1], 'Correct pool returned');
+        t.end();
+    });
+});
+
+test('List pools - filter with two networks', function (t) {
+    NAPI.listNetworkPools({ networks: [ POOLS[3].networks[0] ] },
+        function (err, res) {
+        if (h.ifErr(t, err, 'failed to list pools')) {
+            t.end();
+            return;
+        }
+
+        t.deepEqual(res.length, 2, 'There should be two pools');
+        t.end();
+    });
+});
+
+test('List pools - filter with three networks', function (t) {
+    NAPI.listNetworkPools({ networks: POOLS[0].networks }, function (err, res) {
+        t.ok(err, 'Searching with multiple networks should fail for now');
+        t.equal(res, null, 'There should be no results');
+        t.end();
+    });
+});
+
 test('List Network Pool failures', function (t) {
     t.plan(common.badLimitOffTests.length);
 
@@ -806,8 +874,8 @@ test('Provision nic - on network pool', function (t) {
 
 
 
-test('Delete network in pool', function (t) {
-    NAPI.deleteNetwork(NETS[0].uuid, function (err, res) {
+test('Delete network in IPv4 pool', function (t) {
+    NAPI.deleteNetwork(NETS[4].uuid, function (err, res) {
         t.ok(err, 'error returned');
         if (!err) {
             return t.end();
@@ -817,7 +885,25 @@ test('Delete network in pool', function (t) {
         t.deepEqual(err.body, {
             code: 'InUse',
             message: 'Network is in use',
-            errors: [ mod_err.usedBy('network pool', POOLS[0].uuid) ]
+            errors: [ mod_err.usedBy('network pool', POOLS[1].uuid) ]
+        }, 'error body');
+        return t.end();
+    });
+});
+
+
+test('Delete network in IPv6 pool', function (t) {
+    NAPI.deleteNetwork(NETS[6].uuid, function (err, res) {
+        t.ok(err, 'error returned');
+        if (!err) {
+            return t.end();
+        }
+
+        t.equal(err.statusCode, 422, 'status code');
+        t.deepEqual(err.body, {
+            code: 'InUse',
+            message: 'Network is in use',
+            errors: [ mod_err.usedBy('network pool', POOLS[2].uuid) ]
         }, 'error body');
         return t.end();
     });
